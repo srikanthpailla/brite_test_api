@@ -52,3 +52,9 @@ app = FastAPI(lifespan=lifespan)
 @app.get("/")
 async def docs_redirect():
     return RedirectResponse(url="/docs")
+
+
+@app.get("/list", response_model=Page[serializers.Movie])
+async def list_movie(db: Session = Depends(get_db), page: int = 1, perpage: int = 10):
+    params = Params(size=perpage, page=page)
+    return paginate(db, db.query(models.Movie).order_by(models.Movie.title), params)
