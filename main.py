@@ -2,7 +2,15 @@ import logging
 import models
 import serializers
 
-from database import Base, engine
+from contextlib import asynccontextmanager
+from database import Base, SessionLocal, engine
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.responses import RedirectResponse
+from fastapi_pagination import Page, Params
+from fastapi_pagination.ext.sqlalchemy import paginate
+from omdb_util import OMDBUtil
+from operations import Operations
+from sqlalchemy.orm import Session
 
 logging.basicConfig(
     format="%(asctime)s [ %(module)s ] [ %(funcName)s ] %(levelname)s -- %(message)s"
@@ -12,3 +20,35 @@ log.setLevel(level=logging.DEBUG)
 
 
 Base.metadata.create_all(engine)
+
+
+async def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+omdb_util = OMDBUtil()
+operations = Operations(omdb_util)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db = await get_db().__anext__()
+    if not db.query(models.Movie).first():
+        values = operations.populate_db_with_initial_data()
+        db.add_all(values)
+        db.commit()
+    else:
+        log.info("Data exists, skiping populating of movie data from OMDB")
+    yield
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/")
+async def docs_redirect():
+    return RedirectResponse(url="/docs")
