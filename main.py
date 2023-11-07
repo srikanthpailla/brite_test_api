@@ -72,3 +72,22 @@ async def single_movie(db: Session = Depends(get_db), title: str = None):
     if not single_movie:
         raise HTTPException(404, detail="Movie not found")
     return single_movie
+
+
+@app.post("/add", response_model=serializers.Movie)
+async def add_movie(title: str, db: Session = Depends(get_db)):
+    if db.query(models.Movie).filter_by(title=title).first() is not None:
+        raise HTTPException(409, detail="Movie already exists in database")
+    movie_to_be_added = operations.add_movie(title)
+    db.add(movie_to_be_added)
+    db.commit()
+    return movie_to_be_added
+
+
+@app.delete("/remove")
+async def remove_movie(id: int, db: Session = Depends(get_db)):
+    result = db.query(models.Movie).filter_by(id=id).delete(synchronize_session="fetch")
+    db.commit()
+    if not result:
+        raise HTTPException(404, detail=f"Movie with id: {id} not found")
+    return {"1 row": "removed"}

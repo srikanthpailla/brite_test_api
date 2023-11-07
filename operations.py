@@ -51,3 +51,18 @@ class Operations:
                 )
             )
         return values
+
+    def add_movie(self, title):
+        params = {"t": title}
+        response = self.omdb_util.query_omdb(params)
+        return Movie(
+            imdbid=response["imdbID"],
+            title=response["Title"],
+            year=response["Year"],
+            genre=response["Genre"],
+            released=response["Released"],
+            language=response["Language"],
+            director=response["Director"],
+            writer=response["Writer"],
+            actors=response["Actors"],
+        )
