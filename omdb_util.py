@@ -1,6 +1,5 @@
 import os
 import requests
-from starlette.config import Config
 from requests.adapters import HTTPAdapter, Retry
 from fastapi import HTTPException
 
@@ -12,6 +11,10 @@ class OMDBUtil:
         self.request_session = self._create_request_session()
 
     def _create_request_session(self):
+        """
+        Return the requests session which
+        is configured with retry
+        """
         request_session = requests.Session()
         retries = Retry(
             total=5, backoff_factor=0.1, status_forcelist=[500, 502, 503, 504]
@@ -20,6 +23,9 @@ class OMDBUtil:
         return request_session
 
     def query_omdb(self, params):
+        """
+        Query OMDB using OMDB api
+        """
         headers = {"Accept": "application/json"}
         params.update({"apikey": self.api_key})
         response = self.request_session.get(

@@ -1,3 +1,6 @@
+"""
+Main module
+"""
 import logging
 import models
 import serializers
@@ -36,13 +39,16 @@ operations = Operations(omdb_util)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # get db object from get_db generator
     db = await get_db().__anext__()
+
+    # check if table is empty, populate db with data only if table is empty
     if not db.query(models.Movie).first():
-        values = operations.populate_db_with_initial_data()
+        values = operations.get_100_movies_information_from_omdb()
         db.add_all(values)
         db.commit()
     else:
-        log.info("Data exists, skiping populating of movie data from OMDB")
+        log.info("Don't need to populate db with data as data aleady exists")
     yield
 
 
@@ -56,12 +62,21 @@ async def docs_redirect():
 
 @app.get("/list", response_model=Page[serializers.Movie])
 async def list_movie(db: Session = Depends(get_db), page: int = 1, perpage: int = 10):
+    """
+    Route to lists movies with pagination
+    Default page size is 10
+    """
     params = Params(size=perpage, page=page)
     return paginate(db, db.query(models.Movie).order_by(models.Movie.title), params)
 
 
 @app.get("/single")
 async def single_movie(db: Session = Depends(get_db), title: str = None):
+    """
+    Route to get single movie
+    param title to get movie by title, this param is optional
+    by default it will return first row
+    """
     if title:
         single_movie = (
             db.query(models.Movie).filter(models.Movie.title == title).limit(1).all()
@@ -76,9 +91,13 @@ async def single_movie(db: Session = Depends(get_db), title: str = None):
 
 @app.post("/add", response_model=serializers.Movie)
 async def add_movie(title: str, db: Session = Depends(get_db)):
+    """
+    Route to add movie by param title
+    Gets movie information from OMDB based on title param and add it to db
+    """
     if db.query(models.Movie).filter_by(title=title).first() is not None:
         raise HTTPException(409, detail="Movie already exists in database")
-    movie_to_be_added = operations.add_movie(title)
+    movie_to_be_added = operations.get_movie_info(title)
     db.add(movie_to_be_added)
     db.commit()
     return movie_to_be_added
@@ -86,7 +105,10 @@ async def add_movie(title: str, db: Session = Depends(get_db)):
 
 @app.delete("/remove")
 async def remove_movie(id: int, db: Session = Depends(get_db)):
-    result = db.query(models.Movie).filter_by(id=id).delete(synchronize_session="fetch")
+    """
+    Route to delete movie by param id
+    """
+    result = db.query(models.Movie).filter_by(id=id).delete()
     db.commit()
     if not result:
         raise HTTPException(404, detail=f"Movie with id: {id} not found")

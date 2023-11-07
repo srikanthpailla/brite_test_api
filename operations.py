@@ -17,7 +17,11 @@ class Operations:
     def __init__(self, omdb_util: OMDBUtil):
         self.omdb_util = omdb_util
 
-    def populate_db_with_initial_data(self):
+    def get_100_movies_information_from_omdb(self):
+        """
+        Get 100 movies information and convert them
+        to list of Movie Model objects
+        """
         movie_data = []
         for page in range(1, 11):
             params = {
@@ -27,10 +31,16 @@ class Operations:
             }
             response_json = self.omdb_util.query_omdb(params)
             log.info(f"Adding page: {page}")
-            movie_data.extend(self.get_movie_info_and_add_to_db(response_json))
+            movie_data.extend(
+                self.get_movie_model_objects_from_omdb_response(response_json)
+            )
         return movie_data
 
-    def get_movie_info_and_add_to_db(self, search_response_from_omdb):
+    def get_movie_model_objects_from_omdb_response(self, search_response_from_omdb):
+        """
+        Format list of model objects from omdb search
+        response
+        """
         values = []
         for movie_info in search_response_from_omdb["Search"]:
             imdb_id = movie_info["imdbID"]
@@ -51,7 +61,12 @@ class Operations:
             )
         return values
 
-    def add_movie(self, title):
+    def get_movie_info(self, title):
+        """
+        Get movie info for the provided
+        title from OMDB and return movie model
+        object
+        """
         params = {"t": title}
         response = self.omdb_util.query_omdb(params)
         return Movie(
