@@ -58,3 +58,17 @@ async def docs_redirect():
 async def list_movie(db: Session = Depends(get_db), page: int = 1, perpage: int = 10):
     params = Params(size=perpage, page=page)
     return paginate(db, db.query(models.Movie).order_by(models.Movie.title), params)
+
+
+@app.get("/single")
+async def single_movie(db: Session = Depends(get_db), title: str = None):
+    if title:
+        single_movie = (
+            db.query(models.Movie).filter(models.Movie.title == title).limit(1).all()
+        )
+        single_movie = single_movie[0] if single_movie else None
+    else:
+        single_movie = db.query(models.Movie).first()
+    if not single_movie:
+        raise HTTPException(404, detail="Movie not found")
+    return single_movie
