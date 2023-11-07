@@ -1,5 +1,4 @@
 import logging
-import calendar
 from omdb_util import OMDBUtil
 from models import Movie
 
