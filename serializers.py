@@ -15,3 +15,11 @@ class Movie(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class Users(BaseModel):
+    username: str
+    password: str
+
+    class Config:
+        orm_mode = True

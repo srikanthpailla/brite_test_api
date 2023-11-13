@@ -1,19 +1,24 @@
 """
 Main module
 """
+import auth_handler
 import logging
 import models
+import os
 import serializers
 
 from contextlib import asynccontextmanager
+from datetime import timedelta
 from database import Base, SessionLocal, engine
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.responses import RedirectResponse
 from fastapi_pagination import Page, Params
 from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from omdb_util import OMDBUtil
 from operations import Operations
 from sqlalchemy.orm import Session
+
 
 logging.basicConfig(
     format="%(asctime)s [ %(module)s ] [ %(funcName)s ] %(levelname)s -- %(message)s"
@@ -21,8 +26,13 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 log.setLevel(level=logging.DEBUG)
 
+if not os.environ.get("fastApiUnittest"):
+    Base.metadata.create_all(engine)
 
-Base.metadata.create_all(engine)
+omdb_util = OMDBUtil()
+operations = Operations(omdb_util)
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 async def get_db():
@@ -31,10 +41,6 @@ async def get_db():
         yield db
     finally:
         db.close()
-
-
-omdb_util = OMDBUtil()
-operations = Operations(omdb_util)
 
 
 @asynccontextmanager
@@ -53,6 +59,25 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+
+@app.post("/token")
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+):
+    user = auth_handler.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=401,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=auth_handler.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = auth_handler.create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @app.get("/")
@@ -104,12 +129,27 @@ async def add_movie(title: str, db: Session = Depends(get_db)):
 
 
 @app.delete("/remove")
-async def remove_movie(id: int, db: Session = Depends(get_db)):
+async def remove_movie(
+    id: int, token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+):
     """
     Route to delete movie by param id
     """
+    if not auth_handler.get_current_user(db, token):
+        raise HTTPException(401, detail="Authentication failed")
     result = db.query(models.Movie).filter_by(id=id).delete()
     db.commit()
     if not result:
         raise HTTPException(404, detail=f"Movie with id: {id} not found")
     return {"1 row": "removed"}
+
+
+@app.post("/singup")
+async def signUp(new_user: serializers.Users, db: Session = Depends(get_db)):
+    new_user = models.Users(
+        username=new_user.username,
+        password=auth_handler.get_password_hash(new_user.password),
+    )
+    db.add(new_user)
+    db.commit()
+    return {"signup": "Successful"}

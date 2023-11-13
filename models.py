@@ -23,3 +23,12 @@ class Movie(Base):
     director: Mapped[TEXT] = mapped_column(TEXT, nullable=True)
     writer: Mapped[TEXT] = mapped_column(TEXT, nullable=True)
     actors: Mapped[TEXT] = mapped_column(TEXT, nullable=True)
+
+
+class Users(Base):
+    __tablename__ = "britetest_users"
+
+    username: Mapped[VARCHAR] = mapped_column(
+        VARCHAR(255), primary_key=True, unique=True, nullable=False
+    )
+    password: Mapped[VARCHAR] = mapped_column(VARCHAR(255), nullable=False)
