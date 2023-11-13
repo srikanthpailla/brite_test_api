@@ -54,10 +54,13 @@ Follow below steps to run tests:
 For the application to be successfully loaded you need to export below Environment Variables.
 
 - DB_HOST : SQL server IP
+- DB_PORT : database port, default value is `3306`
+
+DB_HOST and DB_PORT are not needed, if you are deploying the app using https://github.com/srikanthpailla/brite_test_deploy.git as the deployment creates CloudSQL instance and CloundRun service with the app docker image and connects using Unix Socket connection.
+
 - DB_USER : user to login to database, default value is `britetest-user`
 - DB_APASS : password to login to database
 - DB_NAME : database name, default value is `britetest-database`
-- DB_PORT : database port, default value is `3306`
 - TABLE_NAME : table name, default value is `omdb_movie_info`
 - OMDB_URL : OMDB api url, default value is `https://www.omdbapi.com/`
 - OMDB_API_KEY : OMDB api key
@@ -69,3 +72,8 @@ On app startup DB will be populated with 100 movies, it gets the 100 movies info
 On app startup there is a check to see if table is empty or not, if empty only then DB gets populated with data.
 
 once app is started you can open the url which redirects you to Swagger UI, where you can see what all routes are there.
+
+
+## Create Docker Image:
+Update the docker version in Dockerfile.version and from root of the repo run `make release`
+this will build and push docker image to srikanthreddypailla/learning in DockerHub.
