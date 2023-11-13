@@ -20,6 +20,6 @@ build:
 .PHONY: release
 release: build
 	$(call version_check)
-	docker push (DOCKER_IMG):$(call version)
-	docker tag (DOCKER_IMG):$(call version) (DOCKER_IMG):latest
-	docker push (DOCKER_IMG):latest
+	docker push $(DOCKER_IMG):$(call version)
+	docker tag $(DOCKER_IMG):$(call version) $(DOCKER_IMG):latest
+	docker push $(DOCKER_IMG):latest
