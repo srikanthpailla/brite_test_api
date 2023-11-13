@@ -1,6 +1,8 @@
-import unittest
-import sys
+import json
 import os
+import sys
+import unittest
+
 from unittest import mock
 from fastapi.testclient import TestClient
 from database import Base
@@ -8,8 +10,13 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+mock_omdb_util = mock.MagicMock()
+sys.modules["omdb_util"] = mock_omdb_util
+
 mock_operations = mock.MagicMock()
 sys.modules["operations"] = mock_operations
+
+os.environ["fastApiUnittest"] = "unittests"
 from main import get_db, app, models
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///test.db"
@@ -48,6 +55,8 @@ mock_data = {
     "actors": "Michael Keaton, Jack Nicholson, Kim Basinger",
 }
 
+access_token = None
+
 
 def test_root_route():
     response = client.get("/")
@@ -62,7 +71,7 @@ def test_single_route_failure():
 
 
 def test_add():
-    mock_operations.Operations().add_movie.return_value = models.Movie(**mock_data)
+    mock_operations.Operations().get_movie_info.return_value = models.Movie(**mock_data)
     response = client.post("/add?title=Batman")
     assert response.status_code == 200
     assert response.json() == mock_data
@@ -92,13 +101,42 @@ def test_single_route_with_title():
     assert response.json() == mock_data
 
 
+def test_add_user():
+    headers = {"content-type": "application/json"}
+    body = {"username": "user1", "password": "password"}
+    response = client.post("/singup", data=json.dumps(body), headers=headers)
+    assert response.status_code == 200
+    assert response.json() == {"signup": "Successful"}
+
+
+def test_autheticate_user():
+    global access_token
+    files = {
+        "username": (None, "user1"),
+        "password": (None, "password"),
+    }
+    response = client.post("/token", files=files)
+    assert response.status_code == 200
+    access_token = response.json().get("access_token")
+    assert access_token
+
+
+def test_delete_route_failure_invalid_token():
+    headers = {"Authorization": "Bearer invalid_token"}
+    response = client.delete("/remove?id=123", headers=headers)
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Could not validate credentials"}
+
+
 def test_delete_route():
-    response = client.delete("/remove?id=1")
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = client.delete("/remove?id=1", headers=headers)
     assert response.status_code == 200
     assert response.json() == {"1 row": "removed"}
 
 
 def test_delete_route_failure():
-    response = client.delete("/remove?id=123")
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = client.delete("/remove?id=123", headers=headers)
     assert response.status_code == 404
     assert response.json() == {"detail": "Movie with id: 123 not found"}
